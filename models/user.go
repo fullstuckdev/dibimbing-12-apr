@@ -5,11 +5,20 @@ import (
 	"gorm.io/gorm"
 )
 
+// One to One
 type User struct {
 	gorm.Model
 	Name string `json:"name"`
 	Email string `json:"email"`
 	Password string `json:"password"`
+	Profile UserProfile `json:"profile" gorm:"foreignKey:UserID"`
+}
+
+type UserProfile struct {
+	gorm.Model
+	UserID uint `gorm:"unique"` // Foreign Key
+	Address string `json:"address"`
+	Bio string `json:"bio"`
 }
 
 // DTO
