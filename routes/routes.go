@@ -12,6 +12,7 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB) {
 	userController := controllers.NewUserController(db)
 	profileController := controllers.NewProfileController(db)
 	postController := controllers.NewPostController(db)
+	sysController := controllers.NewSysController(db)
 
 
 	api := r.Group("/api") 
@@ -35,6 +36,15 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB) {
 			protected.POST("/post", postController.CreatePost)	
 			protected.PUT("/post/:id", postController.UpdatePost)	
 			protected.DELETE("/post/:id", postController.DeletePost)	
+
+			// SYS Foldering
+			protected.POST("create-directory", sysController.CreateDirectory)
+			protected.POST("create-file", sysController.CreateFile)
+			protected.GET("read-file", sysController.ReadFile)
+			protected.PUT("rename-file", sysController.RenameFile)
+			protected.POST("upload-file", sysController.UploadFile)
+			protected.POST("download-file", sysController.DownloadFile)
+
 		}
 	}
 }

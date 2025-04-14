@@ -20,14 +20,18 @@ func NewPostController(db *gorm.DB) *PostController {
 }
 
 func (pc *PostController) CreateTag(c *gin.Context) {
+	// request yang masuk dari users
 	var tag models.Tag
 
+	// validasi request tag
 	if err := utils.Validate(c, &tag); err != nil {}
 
+	// buat bikin tag baru
 	if err := pc.DB.Create(&tag).Error; err != nil {
 		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
 	}
 
+	// response sukses
 	c.JSON(http.StatusCreated, gin.H{"data": models.TagResponse{
 		ID: tag.ID,
 		Name: tag.Name,
@@ -35,48 +39,62 @@ func (pc *PostController) CreateTag(c *gin.Context) {
 }
 
 func (pc *PostController) CreatePost(c *gin.Context) {
+	// request yang masuk dari users
 	var req models.CreatePostRequest
+
+	// validasi apakah ada isinya atau kosong
 	if err := c.ShouldBindBodyWithJSON(&req); err != nil {
 		c.JSON(400, gin.H{"error": err.Error()})
 	}
 
+	// dia bakal membaca dari si userId yang ada di token JWT
 	userId, exists := c.Get("userId") // userId dari token si JWT
 
+	// kalau ga ada userId, forbidden
 	if !exists {
 		c.JSON(401, gin.H{"error": "Unauthorized"})
 		return
 	}
 
+	// models menerima 3 data, Title, Content, dan UserId
 	post := models.Post {
-		Title: req.Title, 
-		Content: req.Content,
-		UserId: userId.(uint),
+		Title: req.Title,  // Judul
+		Content: req.Content, // Content
+		UserId: userId.(uint), // UserId
 	}
 
+	// Transaksi di mulai
 	tx := pc.DB.Begin()
 
+	// Fungsi buat create post (membuat post)
 	if err := tx.Create(&post).Error; err != nil {
-		tx.Rollback()
+		tx.Rollback() // ketika gagal, semuanya bakal di kembalikan ke kondisi awal.
 		c.JSON(400, gin.H{"error": err.Error()})
 		return
 	}
 
-	// pengecekan tag
+	// pengecekan tag.. apakah lebih dari 1
 	if len(req.TagIds) > 0 {
-		var tags []models.Tag
+		var tags []models.Tag // request tags, dari si models tags
 
+		// dia bakal mencari data tags berdasarkan tagIds
+		// dia searching lewat database
 		if err := tx.Find(&tags, req.TagIds).Error; err != nil {
-			tx.Rollback()
+			tx.Rollback() // ketika ini di jalankan
 			c.JSON(400, gin.H{"error": "invalid tag IDs"})
 			return
 		}
 
+		// kalau panjangnya kurang sama dengan panjang yang data aktual.
+		// dia gagal
 		if len(tags) != len(req.TagIds) {
-			tx.Rollback()
+			tx.Rollback() // ketika ini di jalankan
 			c.JSON(400, gin.H{"error": "Beberapa tag tidak ditemukan..."})
 			return
 		}
 
+		// untuk menghubungkan table post dengan table tags. 
+		// biar dia bisa masuk ke dalam table postTag
 		if err := tx.Model(&post).Association("Tags").Append(&tags); err != nil {
 			tx.Rollback()
 			c.JSON(400, gin.H{"error": err.Error()})
@@ -84,6 +102,7 @@ func (pc *PostController) CreatePost(c *gin.Context) {
 		}
 	}
 
+	// ketika sudah sukses semua, commit agar data tersimpan permanen di db
 	tx.Commit()
 
 	if err := pc.DB.Preload("User").Preload("Tags").First(&post, post.ID).Error; err != nil {
